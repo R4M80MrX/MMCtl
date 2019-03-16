@@ -32,10 +32,12 @@ public class RemoteRespHooks extends BaseXposedHook {
                             KLog.e("bufToResp: " + "{\"response\": " + StrUtils.toJson(param.thisObject) + ", \"stackTrace\": \"" + Log.getStackTraceString(new Exception()) + "\"}");
                             try {
                                 int type = XposedHelpers.getIntField(param.thisObject, "type");
+                                Object response = XposedHelpers.getObjectField(param.thisObject, Wechat.Hook.NetScene.NetSceneResponseBodyKey);
+
                                 OnResponseListener l = responseListeners.get(type);
                                 if (l != null) {
                                     responseListeners.remove(type);
-                                    l.onResponse(param.thisObject);
+                                    l.onResponse(response);
                                 }
                             } catch (Exception e) {
                                 e.printStackTrace();
@@ -54,6 +56,7 @@ public class RemoteRespHooks extends BaseXposedHook {
                     byte[].class,
                     long.class,
                     new XC_MethodHook() {
+
                         @Override
                         protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                             KLog.e("bufToResp: " + "{\"response\": " + StrUtils.toJson(param.thisObject) + ", \"stackTrace\": \"" + Log.getStackTraceString(new Exception()) + "\"}");

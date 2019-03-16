@@ -2,7 +2,9 @@ package com.cc.core.wechat.model.user;
 
 import com.google.gson.annotations.SerializedName;
 
-public class Friend {
+import java.io.Serializable;
+
+public class Friend implements Serializable {
     @SerializedName(value = "wechatId", alternate = "field_username")
     private String wechatId;
     // 微信号

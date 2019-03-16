@@ -12,6 +12,7 @@ import com.cc.core.wechat.Wechat
 import com.cc.core.wechat.Wechat.Hook.Message.AppMsgLogic
 import com.cc.core.wechat.Wechat.Hook.Message.AppMsgLogicSendFunc
 import com.cc.core.wechat.Wechat.Hook.NetScene.*
+import com.cc.core.wechat.Wechat.WECHAT_CLASSLOADER
 import com.cc.core.wechat.model.message.CardMessage
 import com.cc.core.wechat.model.message.ImageMessage
 import com.cc.core.wechat.model.message.TextMessage
@@ -21,6 +22,7 @@ import de.robv.android.xposed.XposedHelpers
 import de.robv.android.xposed.XposedHelpers.callStaticMethod
 import de.robv.android.xposed.XposedHelpers.findClass
 import de.robv.android.xposed.XposedHelpers.setObjectField
+import de.robv.android.xposed.XposedHelpers.newInstance
 import java.io.File
 import java.util.ArrayList
 import java.util.HashMap
@@ -58,7 +60,7 @@ class SendMessageAction : Action {
             messageAttributes = HashMap()
             messageAttributes["atuserlist"] = "<![CDATA[" + StrUtils.join(msg.getAtUsers()!!.asIterable(), ",") + "]]>"
         }
-        val request = XposedHelpers.newInstance(XposedHelpers.findClass(Wechat.Hook.NetScene.NetSceneSendMsgClass, Wechat.WECHAT_CLASSLOADER),
+        val request = newInstance(findClass(Wechat.Hook.NetScene.NetSceneSendMsgClass, Wechat.WECHAT_CLASSLOADER),
                 msg.getTarget(), msg.getContent(), messageType, flag, messageAttributes)
         HookUtils.enqueueNetScene(request, 0)
     }
@@ -66,7 +68,7 @@ class SendMessageAction : Action {
     private fun sendImageMessage(msg: ImageMessage) {
 
         val data = arrayOf(3, msg.getFrom(), msg.getTarget(), msg.getImageUrl(), 1, null, 0, "", "", true, NetSceneUploadMsgImgMaskResId)
-        val request = XposedHelpers.newInstance(XposedHelpers.findClass(NetSceneUploadMsgImg, Wechat.WECHAT_CLASSLOADER), *data)
+        val request = XposedHelpers.newInstance(findClass(NetSceneUploadMsgImg, WECHAT_CLASSLOADER), *data)
         HookUtils.enqueueNetScene(request, 0)
     }
 
@@ -77,7 +79,7 @@ class SendMessageAction : Action {
         val handler = XposedHelpers.newInstance(XposedHelpers.findClass(NetSceneUploadMsgVideo, Wechat.WECHAT_CLASSLOADER),
                 ApplicationContext.forgroundActivity, path, null, msg.getTarget(), 2, null)
 
-        XposedHelpers.callStaticMethod(XposedHelpers.findClass(UploadMsgVideoHandler, Wechat.WECHAT_CLASSLOADER), "post", handler, "ChattingUI_importMultiVideo")
+        callStaticMethod(XposedHelpers.findClass(UploadMsgVideoHandler, Wechat.WECHAT_CLASSLOADER), "post", handler, "ChattingUI_importMultiVideo")
     }
 
     private fun sendCardMessage(message:CardMessage) {

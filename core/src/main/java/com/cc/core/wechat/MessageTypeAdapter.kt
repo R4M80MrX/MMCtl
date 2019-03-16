@@ -35,12 +35,14 @@ class MessageTypeAdapter : JsonSerializer<WeChatMessage>, JsonDeserializer<WeCha
     }
 
     private fun getMessageActualType(type: Int): Type {
-        when (type) {
-            WeChatMessageType.IMAGE, WeChatMessageType.EMOJI -> return ImageMessage::class.java
-            WeChatMessageType.VIDEO -> return VideoMessage::class.java
-            WeChatMessageType.TEXT -> return TextMessage::class.java
-            WeChatMessageType.CARD -> return CardMessage::class.java
-            else -> return UnsupportMessage::class.java
+        return when (type) {
+            WeChatMessageType.IMAGE, WeChatMessageType.EMOJI -> ImageMessage::class.java
+            WeChatMessageType.VIDEO -> VideoMessage::class.java
+            WeChatMessageType.TEXT -> TextMessage::class.java
+            WeChatMessageType.CARD -> CardMessage::class.java
+            WeChatMessageType.VOICE -> VoiceMessage::class.java
+            WeChatMessageType.VOIP -> VoipMessage::class.java
+            else -> UnsupportMessage::class.java
         }
     }
 }

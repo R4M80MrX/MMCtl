@@ -2,13 +2,21 @@ package com.cc.core.utils;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.media.MediaMetadataRetriever;
+import android.text.TextUtils;
 import android.util.Log;
+
 import com.cc.core.log.KLog;
+
 import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+
 import junit.framework.Assert;
+
+import static android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC;
 
 public class ImageUtil {
 
@@ -38,7 +46,9 @@ public class ImageUtil {
     private static final int MAX_DECODE_PICTURE_SIZE = 1920 * 1440;
 
     public static Bitmap extractThumbNail(final String path, final int height, final int width, final boolean crop) {
-        Assert.assertTrue(path != null && !path.equals("") && height > 0 && width > 0);
+        if (TextUtils.isEmpty(path)) {
+            return null;
+        }
 
         BitmapFactory.Options options = new BitmapFactory.Options();
 
@@ -122,8 +132,10 @@ public class ImageUtil {
     }
 
     public static byte[] fileToWxThumb(String filePath) {
-        Bitmap thumbBmp = ImageUtil.extractThumbNail(filePath, WX_THUMB_SIZE, WX_THUMB_SIZE, false);
-
+        Bitmap thumbBmp = extractThumbNail(filePath, WX_THUMB_SIZE, WX_THUMB_SIZE, false);
+        if (thumbBmp == null) {
+            return null;
+        }
         byte[] bytes = bitmap2Bytes(thumbBmp, WX_IMAGE_SIZE);
 
         thumbBmp.recycle();
@@ -141,5 +153,24 @@ public class ImageUtil {
             options -= 10;
         }
         return output.toByteArray();
+    }
+
+    public static String getVideoPathCover(String videoPath) {
+        if (TextUtils.isEmpty(videoPath)) {
+            return null;
+        }
+        MediaMetadataRetriever mmr = new MediaMetadataRetriever();
+        mmr.setDataSource(videoPath);
+        Bitmap bitmap = mmr.getFrameAtTime(1 * 1000 * 1000, OPTION_CLOSEST_SYNC);//获取1秒附近的关键帧
+        if (bitmap == null) {
+            return null;
+        }
+
+        File file = FileUtil.saveBitmap2File(bitmap);
+        if (file == null) {
+            return null;
+        }
+
+        return file.getAbsolutePath();
     }
 }

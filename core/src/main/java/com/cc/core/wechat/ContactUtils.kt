@@ -22,10 +22,14 @@ class ContactUtils {
         }
 
         fun getContactByWechatId(wechatId: String): Friend? {
-            val j = XposedHelpers.callMethod(HookUtils.getContactManager(), Wechat.Hook.Account.GetContactInfoFunc, wechatId)
+            val j = getWechatContactByWechatId(wechatId)
             return if (j == null) {
                 null
             } else StrUtils.fromJson(StrUtils.toJson(j), Friend::class.java)
+        }
+
+        fun getWechatContactByWechatId(wechatId: String): Any? {
+            return XposedHelpers.callMethod(HookUtils.getContactManager(), Wechat.Hook.Account.GetContactInfoFunc, wechatId)
         }
 
         fun getAvatarBy(wechatId: String): String {

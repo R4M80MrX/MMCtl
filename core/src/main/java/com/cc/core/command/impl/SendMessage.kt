@@ -20,21 +20,25 @@ class SendMessage : Action {
         val gson = MessageUtils.messageDeserializeGson()
 
         val msg : WeChatMessage
-        if (args[0] is WeChatMessage) {
-            msg = args[0] as WeChatMessage
+        msg = if (args[0] is WeChatMessage) {
+            args[0] as WeChatMessage
         } else {
-            msg = gson.fromJson(args[0].toString(), WeChatMessage::class.java)
+            gson.fromJson(args[0].toString(), WeChatMessage::class.java)
         }
 
-        if (msg is ImageMessage) {
-            val path = Utils.downloadFile(msg.getImageUrl(), false)
-            msg.setImageUrl(path)
-        } else if (msg is VideoMessage) {
-            val path = Utils.downloadFile(msg.getVideoUrl(), true)
-            msg.setVideoUrl(path)
-        } else if (msg is CardMessage) {
-            val path = Utils.downloadFile(msg.getThumbUrl(), false)
-            msg.setThumbUrl(path)
+        when (msg) {
+            is ImageMessage -> {
+                val path = Utils.downloadFile(msg.getImageUrl(), false)
+                msg.setImageUrl(path)
+            }
+            is VideoMessage -> {
+                val path = Utils.downloadFile(msg.getVideoUrl(), true)
+                msg.setVideoUrl(path)
+            }
+            is CardMessage -> {
+                val path = Utils.downloadFile(msg.getThumbUrl(), false)
+                msg.setThumbUrl(path)
+            }
         }
         return Actions.execute(SendMessageAction::class.java, actionId, StrUtils.toJson(msg))
     }

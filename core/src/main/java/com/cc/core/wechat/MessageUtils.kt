@@ -7,6 +7,9 @@ import com.cc.core.log.KLog
 import com.cc.core.utils.FileUtil
 import com.cc.core.utils.MD5
 import com.cc.core.utils.StrUtils
+import com.cc.core.utils.Utils
+import com.cc.core.wechat.Wechat.Hook.Message.MessageVoiceLogicClass
+import com.cc.core.wechat.Wechat.Hook.Message.MessageVoiceLogicGetVoiceFullPathFunc
 import com.cc.core.wechat.Wechat.Hook.NetScene.ModelCdnUtil
 import com.cc.core.wechat.Wechat.Hook.NetScene.ModelCdnUtilGetFileKeyFunc
 import com.cc.core.wechat.hook.tool.CdnLogicHooks
@@ -14,6 +17,8 @@ import com.cc.core.wechat.model.message.*
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import de.robv.android.xposed.XposedHelpers
+import de.robv.android.xposed.XposedHelpers.callStaticMethod
+import de.robv.android.xposed.XposedHelpers.findClass
 import java.io.File
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.Executors
@@ -24,6 +29,8 @@ class MessageUtils {
         const val RECEIVE_MESSAGE_BROADCAST = "com.cc.core.wechat.Receive_Message_Broadcast"
 
         private const val GetMsgSvrIdSql = "select msgId from message where msgSvrId = ?"
+
+        private const val GetVoiceMsgImagePathSql = "select imgPath from message where msgSvrId = ?"
 
         private val lock = ArrayBlockingQueue<String>(1)
         private val executorService = Executors.newFixedThreadPool(5)
@@ -106,6 +113,23 @@ class MessageUtils {
                     msg.setMsgServId(msgservId)
                     MessageUtils.processCardMessage(msg, content)
                 }
+                WeChatMessageType.VOICE -> {
+                    msg = VoiceMessage()
+                    msg.setFrom(from)
+                    msg.setTarget(to)
+                    msg.setCreateTime(dateTime)
+                    msg.setMsgServId(msgservId)
+                    MessageUtils.processVoiceMessage(msg)
+                }
+                WeChatMessageType.VOIP -> {
+                    /*msg = VoipMessage()
+                    msg.setFrom(from)
+                    msg.setTarget(to)
+                    msg.setCreateTime(dateTime)
+                    msg.setMsgServId(msgservId)
+                    MessageUtils.processVoipMessage(msg, content)*/
+                    return
+                }
                 else -> {
                     msg = UnsupportMessage()
                     msg.setMessageDetails(content)
@@ -126,7 +150,7 @@ class MessageUtils {
                     .create()
         }
 
-        fun downloadImage(message: ImageMessage, details: String): String {
+        private fun downloadImage(message: ImageMessage, details: String): String {
             val map = HookUtils.xmlToMap(details, "msg")
 
             val savePath = File(
@@ -167,7 +191,7 @@ class MessageUtils {
             return savePath
         }
 
-        fun downloadVideo(message: VideoMessage, details: String): String {
+        private fun downloadVideo(message: VideoMessage, details: String): String {
             val map = HookUtils.xmlToMap(details, "msg")
 
             val fileName = System.currentTimeMillis().toString() + ""
@@ -203,7 +227,7 @@ class MessageUtils {
             return savePath
         }
 
-        fun getMessageIdByServId(servId: String?): Long {
+        private fun getMessageIdByServId(servId: String?): Long {
             val cursor = HookUtils.executeRawQuery(GetMsgSvrIdSql, servId!!)
             var msgId: Long = -1
             if (cursor.moveToFirst()) {
@@ -211,6 +235,25 @@ class MessageUtils {
             }
             cursor.close()
             return msgId
+        }
+
+        private fun getVoiceMessageImagePathByServId(servId: String?): String? {
+            var retryTimes = 0
+            while (retryTimes < 60) {
+                ++retryTimes
+                val cursor = HookUtils.executeRawQuery(GetVoiceMsgImagePathSql, servId!!)
+                var imgPath: String? = null
+                if (cursor.moveToFirst()) {
+                    imgPath = cursor.getString(cursor.getColumnIndex("imgPath"))
+                }
+                cursor.close()
+                if (!TextUtils.isEmpty(imgPath)) {
+                    return imgPath
+                } else {
+                    Utils.sleep(1000)
+                }
+            }
+            return null
         }
 
         /**
@@ -264,7 +307,7 @@ class MessageUtils {
          * @param message
          * @param details
          */
-        fun processCardMessage(message: CardMessage?, details: String) {
+        private fun processCardMessage(message: CardMessage?, details: String) {
             if (message == null) {
                 return
             }
@@ -293,7 +336,7 @@ class MessageUtils {
             }
         }
 
-        fun getEmojiImageUrl(details: String): String? {
+        private fun getEmojiImageUrl(details: String): String? {
 
             val map = HookUtils.xmlToMap(details, "msg")
             return map[".msg.emoji.\$cdnurl"]
@@ -306,11 +349,7 @@ class MessageUtils {
         }
 
         private fun waitForDownloadFinish(fileKey: String?) {
-            CdnLogicHooks.registerDownloadListeners(fileKey, object : CdnLogicHooks.CdnDownloadFinishListener {
-                override fun onFinishDownload(fileKey: String) {
-                    lock.put(fileKey)
-                }
-            })
+            CdnLogicHooks.registerDownloadListeners(fileKey) { fileKey -> lock.put(fileKey) }
             lock.poll(30, TimeUnit.SECONDS)
         }
 
@@ -319,7 +358,53 @@ class MessageUtils {
                 return
             }
 
+        }
 
+        private fun processVoiceMessage(message: VoiceMessage?) {
+            if (message == null) {
+                return
+            }
+
+            val imagePath = getVoiceMessageImagePathByServId(message.getMsgServId())
+            if (TextUtils.isEmpty(imagePath)) {
+                return
+            }
+            val fullPath = getVoiceFullPath(imagePath)
+
+
+            val path = FileUtil.copyFile(fullPath, FileUtil.getVoiceCacheDirectory().absolutePath)
+            if (path != null) {
+                message.setVoiceUrl(path.absolutePath)
+                return
+            }
+        }
+
+        /*private fun processVoipMessage(message: VoipMessage?, content : String) {
+            if (message == null) {
+                return
+            }
+
+            if (TextUtils.isEmpty(content)) {
+                return
+            }
+
+            val map = HookUtils.xmlToMap(content, "voipinvitemsg")
+            if (map.isEmpty()) {
+                return
+            }
+
+            val type = map[".voipinvitemsg.status"]
+            message.setVoipType(Integer.valueOf(type))
+        }*/
+
+        private fun getVoiceFullPath(imgPath: String?): String? {
+            val path = callStaticMethod(findClass(MessageVoiceLogicClass, Wechat.WECHAT_CLASSLOADER),
+                    MessageVoiceLogicGetVoiceFullPathFunc, imgPath, false)
+            return if (path == null) {
+                ""
+            } else {
+                path as String
+            }
         }
 
         /**
@@ -346,7 +431,8 @@ class MessageUtils {
         </sysmsg>
          */
 
-        fun avoidMessageRevoke(messageDetails: Any) : Boolean {
+        fun avoidMessageRevoke(messageDetails: Any): Boolean {
+
             val contentObj = XposedHelpers.getObjectField(messageDetails,
                     Wechat.Hook.Message.MessageContentFieldId)
             val msgContent = XposedHelpers.getObjectField(contentObj, Wechat.Hook.NetScene.NetSceneResponseStringBooleanValueKey)
@@ -389,7 +475,6 @@ class MessageUtils {
             if (map.isEmpty()) {
                 return null
             }
-            KLog.e("=====>>>>>", map.toString())
             val content = map[".revokemsg.replacemsg"] ?: return null
             return content.split("\"".toRegex())[1]
         }

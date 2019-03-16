@@ -5,7 +5,11 @@ import com.cc.core.log.KLog
 import com.cc.core.rpc.Rpc
 import com.cc.core.rpc.RpcArgs
 import com.cc.core.utils.StrUtils
+import com.cc.core.wechat.Wechat
+import com.cc.core.wechat.Wechat.SupportVersion
+import com.cc.core.wechat.Wechat.WechatVersion
 import com.google.gson.annotations.SerializedName
+import java.util.*
 
 class Actions {
     companion object {
@@ -80,13 +84,18 @@ class Actions {
             return if (isWechatAction(action)) {
                 try {
                     Rpc.call(RpcArgs.newMessage(RawAction.fromAction(action, id, *args)))
-                } catch (e: Exception) {
+                } catch (e: Throwable) {
                     e.printStackTrace()
                     ActionResult.failedResult(id, e)
                 }
 
             } else {
-                action.execute(id, *args)
+                try {
+                    action.execute(id, *args)
+                } catch (e: Throwable) {
+                    e.printStackTrace()
+                    ActionResult.failedResult(id, e)
+                }
             }
         }
 
@@ -107,12 +116,27 @@ class Actions {
 
         fun receivedAction(rawAction: String): ActionResult? {
             val raw = StrUtils.fromJson(rawAction, RawAction::class.java)
+            if (!checkSupported()) {
+                return ActionResult.failedResult(raw.actionId, "微信版本${WechatVersion}不支持，暂支持版本：${Arrays.toString(SupportVersion)}")
+            }
             val action = lookup(raw.actionName)
-            return action.execute(raw.actionId, *raw.args!!.toTypedArray())
+            return try {
+                action.execute(raw.actionId, *raw.args!!.toTypedArray())
+            } catch (t : Throwable) {
+                KLog.e("Actions", "Failed to execute action:${raw.actionName}, error:${t.localizedMessage}")
+                ActionResult.failedResult(raw.actionId, "Failed to execute action:${raw.actionName}, error:${t.localizedMessage}")
+            }
         }
 
         private fun isWechatAction(action: Action): Boolean {
             return StrUtils.stringNotNull(action.key()).startsWith("wechat:")
+        }
+
+        private fun checkSupported() : Boolean {
+            if (!Arrays.asList(*Wechat.SupportVersion).contains(WechatVersion)) {
+                return false
+            }
+            return true
         }
     }
 

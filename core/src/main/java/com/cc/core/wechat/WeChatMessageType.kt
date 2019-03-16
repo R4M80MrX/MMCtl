@@ -11,6 +11,7 @@ class WeChatMessageType {
     const val EMOJI = 47 // Emoji表情
     const val LOCATION = 48 // 位置消息
     const val CARD = 49 // 标准卡片消息
+    const val VOIP = 50 // Voip 消息
     const val MSG_SYNC = 51 // 其他平台微信客户端的消息同步 ??
     const val GROUP_OPERATION = 10000 // 文本系统消息 = 入群、退群、踢出群、好友验证通过，建群成功，受邀入群，群主改变，改群名)
     const val CANCELABLE_GROUP_OPERATION =

@@ -4,6 +4,10 @@ import android.accessibilityservice.AccessibilityServiceInfo;
 import android.content.Context;
 import android.text.TextUtils;
 import android.view.accessibility.AccessibilityManager;
+import android.widget.Toast;
+
+import com.cc.core.ApplicationContext;
+import com.cc.core.log.KLog;
 
 import java.io.File;
 import java.util.List;
@@ -73,5 +77,14 @@ public class Utils {
             return null;
         }
         return file.getAbsolutePath();
+    }
+
+    public static void showToast(String message) {
+        if (ApplicationContext.application() == null) {
+            KLog.e("Show toast failed, " + message);
+            return;
+        }
+
+        Toast.makeText(ApplicationContext.application(), message, Toast.LENGTH_SHORT).show();
     }
 }

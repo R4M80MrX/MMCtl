@@ -25,6 +25,9 @@ public class StrUtils {
     }
 
     public static String toJson(Object obj) {
+        if (obj == null) {
+            return "null";
+        }
         return gson.toJson(obj);
     }
 
